@@ -1,6 +1,6 @@
 package com.example.practicaltestassignment.Service;
 
-import com.example.practicaltestassignment.Model.DateSearch;
+
 import com.example.practicaltestassignment.Model.User;
 import com.example.practicaltestassignment.Model.UserSearchCriteria;
 import com.example.practicaltestassignment.Model.Users;
@@ -63,17 +63,24 @@ public class UserService {
         if (existing == null) {
             return null;
         }
-
-        existing.setFirstname(user.getFirstname());
-        existing.setLastname(user.getLastname());
-
+        if (user.getFirstname() != null) {
+            existing.setFirstname(user.getFirstname());
+        }
+        if (user.getLastname() != null) {
+            existing.setLastname(user.getLastname());
+        }
         if (isValidEmail(user.getEmail())) {
             existing.setEmail(user.getEmail());
         }
-        existing.setPhone(user.getPhone());
-        existing.setBirthDate(user.getBirthDate());
-        existing.setAddress(user.getAddress());
-
+        if (user.getPhone() != null) {
+            existing.setPhone(user.getPhone());
+        }
+        if (user.getBirthDate() != null) {
+            existing.setBirthDate(user.getBirthDate());
+        }
+        if (user.getAddress() != null) {
+            existing.setAddress(user.getAddress());
+        }
         return userRepository.save(existing);
     }
 
@@ -122,14 +129,11 @@ public class UserService {
             if (searchCriteria.getEmail() != null) {
                 predicates.add(criteriaBuilder.like(criteriaBuilder.lower(root.get("email")), "%" + searchCriteria.getEmail().toLowerCase() + "%"));
             }
-            if (searchCriteria.getBirthDate() != null) {
-                DateSearch dateSearch = searchCriteria.getBirthDate();
-                if (dateSearch.getFrom() != null) {
-                    predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("birthDate"), dateSearch.getFrom()));
-                }
-                if (dateSearch.getTo() != null) {
-                    predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("birthDate"), dateSearch.getTo()));
-                }
+            if (searchCriteria.getBirthDateFrom() != null) {
+                predicates.add(criteriaBuilder.greaterThanOrEqualTo(root.get("birthDate"), searchCriteria.getBirthDateFrom()));
+            }
+            if (searchCriteria.getBirthDateTo() != null) {
+                predicates.add(criteriaBuilder.lessThanOrEqualTo(root.get("birthDate"), searchCriteria.getBirthDateTo()));
             }
             if (searchCriteria.getFirstname() != null) {
                 predicates.add(criteriaBuilder.like(criteriaBuilder.lower(root.get("firstname")), "%" + searchCriteria.getFirstname().toLowerCase() + "%"));

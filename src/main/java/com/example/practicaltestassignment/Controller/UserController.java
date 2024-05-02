@@ -23,7 +23,7 @@ public class UserController {
         return userService.createUser(user);
     }
     @PutMapping("/updateUser")
-    public User updateUser(User user){
+    public User updateUser(@RequestBody User user){
         return userService.updateUser(user);
     }
     @DeleteMapping("/deleteUser")
