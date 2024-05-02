@@ -1,0 +1,20 @@
+version: '3.8'
+services:
+  docker-mysql:
+    image: mysql:debian
+    restart: always
+    ports:
+      - "3306:3306"
+    environment:
+       - MYSQL_ROOT_PASSWORD=root
+       - MYSQL_DATABASE=user
+
+  springboot-container:
+    image: docker-spring
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://root:root@docker-mysql:3306/user
+    ports:
+      - "8080:8080"
