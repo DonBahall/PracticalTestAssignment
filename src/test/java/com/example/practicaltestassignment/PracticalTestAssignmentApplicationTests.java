@@ -5,8 +5,10 @@ import com.example.practicaltestassignment.Model.UserSearchCriteria;
 import com.example.practicaltestassignment.Model.Users;
 import com.example.practicaltestassignment.Paging_Sorting.OrderBy;
 import com.example.practicaltestassignment.Paging_Sorting.SearchPaging;
+import com.example.practicaltestassignment.Repository.UserRepository;
 import com.example.practicaltestassignment.Service.UserService;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -14,10 +16,14 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Collections;
+import java.util.Date;
 
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -26,6 +32,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class PracticalTestAssignmentApplicationTests {
     @Autowired
     private MockMvc mockMvc;
+    @Mock
+    private UserRepository userRepository;
 
     @MockBean
     private UserService userService;
@@ -54,6 +62,36 @@ class PracticalTestAssignmentApplicationTests {
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.email").value("test@example.com"));
+    }
+
+
+    @Test
+    public void testCreateUser_NullUser() {
+        User createdUser = userService.createUser(null);
+        assertNull(createdUser);
+        verifyNoInteractions(userRepository);
+    }
+
+    @Test
+    public void testCreateUser_BirthDateInFuture() {
+        User user = new User();
+        user.setBirthDate(Date.from(LocalDate.now().plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant()));
+
+        User createdUser = userService.createUser(user);
+
+        assertNull(createdUser);
+        verifyNoInteractions(userRepository);
+    }
+
+    @Test
+    public void testCreateUser_InvalidEmail() {
+        User user = new User();
+        user.setEmail("invalid-email");
+
+        User createdUser = userService.createUser(user);
+
+        assertNull(createdUser);
+        verifyNoInteractions(userRepository);
     }
 
     @Test
