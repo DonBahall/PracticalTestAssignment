@@ -7,6 +7,7 @@ import com.example.practicaltestassignment.Paging_Sorting.OrderBy;
 import com.example.practicaltestassignment.Paging_Sorting.SearchPaging;
 import com.example.practicaltestassignment.Service.UserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -19,12 +20,12 @@ public class UserController {
         return userService.getUsers(paging, orderBy, searchCriteria);
     }
     @PostMapping("/createUser")
-    public User createUser(@RequestBody User user){
+    public ResponseEntity<?> createUser(@RequestBody User user){
         return userService.createUser(user);
     }
-    @PutMapping("/updateUser")
-    public User updateUser(@RequestBody User user){
-        return userService.updateUser(user);
+    @PutMapping("/updateUser/{id}")
+    public ResponseEntity<?> updateUser(@PathVariable Long id, @RequestBody User user){
+        return userService.updateUser(id, user);
     }
     @DeleteMapping("/deleteUser")
     public Boolean deleteUser(Long id){

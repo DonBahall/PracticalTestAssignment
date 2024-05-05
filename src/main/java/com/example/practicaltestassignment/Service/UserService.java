@@ -16,7 +16,11 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ResponseStatus;
 
 
 import java.time.Instant;
@@ -46,22 +50,37 @@ public class UserService {
         return matcher.matches();
     }
 
-    public User createUser(User user) {
-        if (user != null && user.getBirthDate().before(Date.from(Instant.now()))) {
-            if (Period.between(user.getBirthDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate(),
-                    LocalDate.now()).getYears() >= fromYear) {
-                if (isValidEmail(user.getEmail())) {
-                    return userRepository.save(user);
-                }
+    public ResponseEntity<?> createUser(User user) {
+        try {
+            if (user == null) {
+                return ResponseEntity.badRequest().body("User object is null.");
             }
+
+            if (user.getBirthDate() == null || user.getBirthDate().after(Date.from(Instant.now()))) {
+                return ResponseEntity.badRequest().body("Invalid birth date.");
+            }
+
+            int age = Period.between(user.getBirthDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate(),
+                    LocalDate.now()).getYears();
+            if (age < fromYear) {
+                return ResponseEntity.badRequest().body("User must be at least " + fromYear + " years old.");
+            }
+
+            if (!isValidEmail(user.getEmail())) {
+                return ResponseEntity.badRequest().body("Invalid email.");
+            }
+
+            User savedUser = userRepository.save(user);
+            return ResponseEntity.ok(savedUser);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An error occurred.");
         }
-        return null;
     }
 
-    public User updateUser(User user) {
-        User existing = userRepository.findById(user.getId()).orElse(null);
+    public ResponseEntity<?> updateUser(Long id, User user) {
+        User existing = userRepository.findById(id).orElse(null);
         if (existing == null) {
-            return null;
+            throw new UserNotFoundException("User with id " + id + " not found");
         }
         if (user.getFirstname() != null) {
             existing.setFirstname(user.getFirstname());
@@ -81,7 +100,8 @@ public class UserService {
         if (user.getAddress() != null) {
             existing.setAddress(user.getAddress());
         }
-        return userRepository.save(existing);
+        userRepository.save(existing);
+        return ResponseEntity.ok(existing);
     }
 
     public Boolean deleteUser(Long id) {
@@ -162,5 +182,14 @@ public class UserService {
             default -> Sort.unsorted();
         };
     }
-
+    @ExceptionHandler(UserNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ResponseEntity<String> handleUserNotFoundException(UserNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ex.getMessage());
+    }
+    public static class UserNotFoundException extends RuntimeException {
+        public UserNotFoundException(String message) {
+            super(message);
+        }
+    }
 }

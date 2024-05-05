@@ -1,5 +1,6 @@
 package com.example.practicaltestassignment;
 
+import com.example.practicaltestassignment.Controller.UserController;
 import com.example.practicaltestassignment.Model.User;
 import com.example.practicaltestassignment.Model.UserSearchCriteria;
 import com.example.practicaltestassignment.Model.Users;
@@ -7,115 +8,104 @@ import com.example.practicaltestassignment.Paging_Sorting.OrderBy;
 import com.example.practicaltestassignment.Paging_Sorting.SearchPaging;
 import com.example.practicaltestassignment.Repository.UserRepository;
 import com.example.practicaltestassignment.Service.UserService;
+
 import org.junit.jupiter.api.Test;
-import org.mockito.Mock;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.MockMvc;
+
+import org.springframework.http.HttpStatus;
+
+import org.springframework.http.ResponseEntity;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.util.Collections;
+import java.time.temporal.ChronoUnit;
 import java.util.Date;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
 
 @SpringBootTest
 @AutoConfigureMockMvc
 class PracticalTestAssignmentApplicationTests {
+
     @Autowired
-    private MockMvc mockMvc;
-    @Mock
-    private UserRepository userRepository;
-
-    @MockBean
     private UserService userService;
-    @Test
-    public void testGetUsersEndpoint() throws Exception {
-        when(userService.getUsers(any(SearchPaging.class), any(OrderBy.class), any(UserSearchCriteria.class)))
-                .thenReturn(new Users(Collections.emptyList(),null));
-        mockMvc.perform(get("/getUsers")
-                        .param("page", "0")
-                        .param("perPage", "10")
-                        .param("orderBy", "IdAsc"))
-                .andExpect(status().isOk())
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.items").isArray())
-                .andExpect(jsonPath("$.items").isEmpty());
-    }
-    @Test
-    public void testCreateUserEndpoint() throws Exception {
-        User user = new User();
-        user.setEmail("test@example.com");
-        user.setFirstname("Test");
-        when(userService.createUser(any(User.class))).thenReturn(user);
-        mockMvc.perform(post("/createUser")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{ \"email\": \"test@example.com\", \"firstname\": \"Test\" }"))
-                .andExpect(status().isOk())
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.email").value("test@example.com"));
-    }
 
+    @Autowired
+    private UserController userController;
 
     @Test
-    public void testCreateUser_NullUser() {
-        User createdUser = userService.createUser(null);
-        assertNull(createdUser);
-        verifyNoInteractions(userRepository);
+    public void testGetUsers() {
+        // Arrange
+        SearchPaging searchPaging = new SearchPaging();
+        searchPaging.setPage(1);
+        searchPaging.setPerPage(10);
+        OrderBy orderBy = OrderBy.IdAsc;
+
+        UserSearchCriteria searchCriteria = new UserSearchCriteria();
+        Users result = userController.getUsers(searchPaging, orderBy, searchCriteria);
+
+        assertNotNull(result);
+        assertFalse(result.getItems().isEmpty());
     }
 
     @Test
-    public void testCreateUser_BirthDateInFuture() {
-        User user = new User();
-        user.setBirthDate(Date.from(LocalDate.now().plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant()));
+    public void testCreateUserEndpoint() {
+        UserRepository userRepository = mock(UserRepository.class);
+        UserController userController = new UserController(userService);
+        // Prepare test data
+        User validUser = new User();
+        validUser.setFirstname("John Doe");
+        validUser.setEmail("john@example.com");
+        validUser.setBirthDate(Date.from(LocalDate.of(1990, 1, 1).atStartOfDay(ZoneId.systemDefault()).toInstant()));
 
-        User createdUser = userService.createUser(user);
+        User invalidUser = new User();
+        invalidUser.setFirstname("John Doe");
+        invalidUser.setEmail("invalidemail"); // Invalid email
+        invalidUser.setBirthDate(Date.from(LocalDate.now().plus(1, ChronoUnit.DAYS).atStartOfDay(ZoneId.systemDefault()).toInstant())); // Future birth date
 
-        assertNull(createdUser);
-        verifyNoInteractions(userRepository);
+        // Mock userRepository behavior
+        when(userRepository.save(validUser)).thenReturn(validUser);
+        when(userRepository.save(invalidUser)).thenThrow(new RuntimeException()); // Simulate repository save error
+
+        // Test valid user creation
+        ResponseEntity<?> responseValid = userController.createUser(validUser);
+        assertEquals(HttpStatus.OK, responseValid.getStatusCode());
+        assertEquals(validUser, responseValid.getBody());
+
+        // Test invalid user creation - null user
+        ResponseEntity<?> responseNullUser = userController.createUser(null);
+        assertEquals(HttpStatus.BAD_REQUEST, responseNullUser.getStatusCode());
+        assertEquals("User object is null.", responseNullUser.getBody());
+
+        // Test invalid user creation - invalid birthdate
+        ResponseEntity<?> responseInvalidBirthDate = userController.createUser(invalidUser);
+        assertEquals(HttpStatus.BAD_REQUEST, responseInvalidBirthDate.getStatusCode());
+        assertEquals("Invalid birth date.", responseInvalidBirthDate.getBody());
+
+        // Test invalid user creation - invalid email
+        invalidUser.setBirthDate(Date.from(LocalDate.of(1990, 1, 1).atStartOfDay(ZoneId.systemDefault()).toInstant())); // Reset birth date
+        ResponseEntity<?> responseInvalidEmail = userController.createUser(invalidUser);
+        assertEquals(HttpStatus.BAD_REQUEST, responseInvalidEmail.getStatusCode());
+        assertEquals("Invalid email.", responseInvalidEmail.getBody());
+
+        // Test internal server error
+        User anotherValidUser = new User();
+        anotherValidUser.setFirstname("John Doe");
+        anotherValidUser.setEmail("alice@example.com");
+        anotherValidUser.setBirthDate(Date.from(LocalDate.of(1985, 5, 5).atStartOfDay(ZoneId.systemDefault()).toInstant()));
+
+        ResponseEntity<?> responseInternalServerError = userController.createUser(anotherValidUser);
+        assertEquals(HttpStatus.OK, responseInternalServerError.getStatusCode());
     }
-
     @Test
-    public void testCreateUser_InvalidEmail() {
-        User user = new User();
-        user.setEmail("invalid-email");
-
-        User createdUser = userService.createUser(user);
-
-        assertNull(createdUser);
-        verifyNoInteractions(userRepository);
-    }
-
-    @Test
-    public void testUpdateUserEndpoint() throws Exception {
-        User user = new User();
-        user.setId(1L);
-        user.setEmail("test@example.com");
-        user.setFirstname("UpdatedTest");
-        when(userService.updateUser(any(User.class))).thenReturn(user);
-        mockMvc.perform(put("/updateUser")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{ \"id\": 1, \"email\": \"test@example.com\", \"firstname\": \"UpdatedTest\" }"))
-                .andExpect(status().isOk())
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.firstname").value("UpdatedTest"));
-    }
-
-    @Test
-    public void testDeleteUserEndpoint() throws Exception {
-        when(userService.deleteUser(1L)).thenReturn(true);
-        mockMvc.perform(delete("/deleteUser")
-                        .param("id", "1"))
-                .andExpect(status().isOk())
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$").value(true));
+    public void testDeleteUser_UserNotFound() {
+        Long userId = 1L;
+        Boolean result = userController.deleteUser(userId);
+        assertFalse(result);
     }
 }

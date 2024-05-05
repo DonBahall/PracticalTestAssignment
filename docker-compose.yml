@@ -1,5 +1,15 @@
 version: '3.8'
 services:
+  db:
+    image: mysql:debian
+    restart: always
+    ports:
+      - "3307:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=mysql
+      - MYSQL_DATABASE=bootdb
+    networks:
+      - mynet
 
   springboot-container:
     build:
@@ -16,16 +26,6 @@ services:
     networks:
       - mynet
 
-  db:
-    image: mysql:debian
-    restart: always
-    ports:
-      - "3307:3306"
-    environment:
-      - MYSQL_ROOT_PASSWORD=mysql
-      - MYSQL_DATABASE=bootdb
-    networks:
-      - mynet
 
 networks:
   mynet:
